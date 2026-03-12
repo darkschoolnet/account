@@ -326,6 +326,14 @@
             <option value="5">Klasse 5</option><option value="6">Klasse 6</option><option value="7">Klasse 7</option><option value="8">Klasse 8</option><option value="9">Klasse 9</option><option value="10">Klasse 10</option><option value="11">Klasse 11 (EF)</option><option value="12">Klasse 12 (Q1)</option><option value="13">Klasse 13 (Q2)</option>
           </select>
         </div>
+        <div class="form-group">
+          <label for="regSchool">Schule</label>
+          <select id="regSchool">
+            <option value="" disabled selected>— Schule wählen —</option>
+            <option value="Albert Einstein Gymnasium">Albert Einstein Gymnasium</option>
+            <option value="Andere Schule">Andere Schule</option>
+          </select>
+        </div>
         <div class="form-group"><label for="regPassword">Passwort</label><input type="password" id="regPassword" placeholder="Frei wählbar" autocomplete="new-password" /></div>
         <button class="btn-primary" id="registerBtn" onclick="handleRegister()"><span id="registerBtnText">Account erstellen</span></button>
       </div>
@@ -354,7 +362,8 @@
           <div class="info-block"><div class="info-label">Benutzername</div><div class="info-value" id="dashUsername">–</div></div>
           <div class="info-block"><div class="info-label">Klassenstufe</div><div class="info-value" id="dashGrade">–</div></div>
           <div class="info-block"><div class="info-label">Mitglied seit</div><div class="info-value" id="dashJoined">–</div></div>
-          <div class="info-block"><div class="info-label">Anzeigename</div><div class="info-value" id="dashDisplayName">–</div></div>
+          <div class="info-block"><div class="info-label">Schule</div><div class="info-value" id="dashSchool">–</div></div>
+          <div class="info-block" style="grid-column:1/-1"><div class="info-label">Anzeigename</div><div class="info-value" id="dashDisplayName">–</div></div>
         </div>
         <button class="btn-logout" onclick="handleLogout()">Ausloggen</button>
       </div>
@@ -496,9 +505,15 @@
           <div class="stat-card blue"  ><div class="stat-number" id="statToday">–</div><div class="stat-label">Heute registriert</div></div>
           <div class="stat-card green" ><div class="stat-number" id="statPrivate">–</div><div class="stat-label">Privat gestellt</div></div>
         </div>
-        <div style="border:1px solid var(--border-subtle);padding:20px;">
-          <div class="section-title" style="margin-bottom:16px;">Verteilung nach Klasse</div>
-          <div class="grade-bars" id="gradeBars"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:0;">
+          <div style="border:1px solid var(--border-subtle);padding:20px;">
+            <div class="section-title" style="margin-bottom:16px;font-size:14px;">Nach Klasse</div>
+            <div class="grade-bars" id="gradeBars"></div>
+          </div>
+          <div style="border:1px solid var(--border-subtle);padding:20px;">
+            <div class="section-title" style="margin-bottom:16px;font-size:14px;">Nach Schule</div>
+            <div class="grade-bars" id="schoolBars"></div>
+          </div>
         </div>
       </div>
       <!-- Users -->
@@ -511,7 +526,7 @@
         <div class="alert alert-success" id="deleteSuccess"></div>
         <div style="overflow-x:auto;">
           <table class="user-table">
-            <thead><tr><th>Username</th><th>Vorname</th><th>Klasse</th><th>Registriert</th><th>Privat</th><th></th></tr></thead>
+            <thead><tr><th>Username</th><th>Vorname</th><th>Klasse</th><th>Schule</th><th>Registriert</th><th>Privat</th><th></th></tr></thead>
             <tbody id="userTableBody"></tbody>
           </table>
         </div>
@@ -675,11 +690,13 @@
       const username=document.getElementById('regUsername').value.trim();
       const name=document.getElementById('regName').value.trim();
       const grade=document.getElementById('regGrade').value;
+      const school=document.getElementById('regSchool').value;
       const password=document.getElementById('regPassword').value;
       let valid=true;
       if(!username||username.length<3||username.length>20||!/^[a-zA-Z0-9_.\-]+$/.test(username)){document.getElementById('regUsername').classList.add('error-field');valid=false;}
       if(!name||name.length<2){document.getElementById('regName').classList.add('error-field');valid=false;}
       if(!grade){document.getElementById('regGrade').classList.add('error-field');valid=false;}
+      if(!school){document.getElementById('regSchool').classList.add('error-field');valid=false;}
       if(!password){document.getElementById('regPassword').classList.add('error-field');valid=false;}
       if(!valid){showAlert('registerError','Bitte alle Felder korrekt ausfüllen.');return;}
       setBtnLoading('registerBtn','registerBtnText','Prüfe Username…',true);
@@ -690,11 +707,12 @@
         setBtnLoading('registerBtn','registerBtnText','Verschlüssele…',true);
         const salt=generateSalt(),password_hash=await hashPassword(password,salt);
         setBtnLoading('registerBtn','registerBtnText','Speichere…',true);
-        const{error:e2}=await db.from('dsn_users').insert({username:username.toLowerCase(),real_name:name,grade,salt,password_hash,show_name:true});
+        const{error:e2}=await db.from('dsn_users').insert({username:username.toLowerCase(),real_name:name,grade,school,salt,password_hash,show_name:true});
         if(e2)throw e2;
         showAlert('registerSuccess','✓ Account erstellt! Du kannst dich jetzt einloggen.');
         ['regUsername','regName','regPassword'].forEach(id=>document.getElementById(id).value='');
         document.getElementById('regGrade').value='';
+        document.getElementById('regSchool').value='';
         setTimeout(()=>switchTab('login'),1800);
       }catch(err){console.error(err);showAlert('registerError','Fehler: '+(err.message||JSON.stringify(err)));}
       finally{setBtnLoading('registerBtn','registerBtnText','Account erstellen',false);}
@@ -732,6 +750,7 @@
       document.getElementById('dashUsername').textContent    = user.username ||'–';
       document.getElementById('dashGrade').textContent       = 'Klasse '+(user.grade||'–');
       document.getElementById('dashJoined').textContent      = user.created_at?new Date(user.created_at).toLocaleDateString('de-DE'):'–';
+      document.getElementById('dashSchool').textContent      = user.school||'–';
       document.getElementById('dashDisplayName').textContent = displayName;
       document.getElementById('curUsername').textContent     = user.username ||'–';
       document.getElementById('curName').textContent         = user.real_name||'–';
@@ -866,7 +885,7 @@
     let allUsers=[];
     async function loadAdminData(){
       try{
-        const{data:users,error}=await db.from('dsn_users').select('id,username,real_name,grade,show_name,created_at').order('created_at',{ascending:false});
+        const{data:users,error}=await db.from('dsn_users').select('id,username,real_name,grade,school,show_name,created_at').order('created_at',{ascending:false});
         if(error)throw error;
         allUsers=users||[];
         renderAdminStats(allUsers);
@@ -884,6 +903,16 @@
       users.forEach(u=>{if(u.grade)gradeCounts[u.grade]=(gradeCounts[u.grade]||0)+1;});
       const sorted=Object.entries(gradeCounts).sort((a,b)=>parseInt(a[0])-parseInt(b[0]));
       const max=Math.max(...Object.values(gradeCounts),1);
+      const schoolCounts={};
+      users.forEach(u=>{if(u.school)schoolCounts[u.school]=(schoolCounts[u.school]||0)+1;});
+      const schoolSorted=Object.entries(schoolCounts).sort((a,b)=>b[1]-a[1]);
+      const schoolMax=Math.max(...Object.values(schoolCounts),1);
+      document.getElementById('schoolBars').innerHTML=schoolSorted.length?schoolSorted.map(([s,c])=>`
+        <div class="grade-row">
+          <span class="grade-key" style="width:120px;font-size:11px">${s==='Albert Einstein Gymnasium'?'AEG':s}</span>
+          <div class="grade-bar-wrap"><div class="grade-bar-fill" style="width:${Math.round(c/schoolMax*100)}%;background:var(--accent)"></div></div>
+          <span class="grade-count">${c}</span>
+        </div>`).join(''):'<div class="empty-state">Noch keine Daten</div>';
       document.getElementById('gradeBars').innerHTML=sorted.length?sorted.map(([g,c])=>`
         <div class="grade-row">
           <span class="grade-key">Klasse ${g}</span>
@@ -901,6 +930,7 @@
           <td class="td-username">${u.username||'–'}</td>
           <td>${u.real_name||'–'}</td>
           <td>Kl. ${u.grade||'–'}</td>
+          <td style="font-size:12px;color:var(--text-secondary)">${u.school||'–'}</td>
           <td style="font-size:12px;color:var(--text-muted)">${u.created_at?new Date(u.created_at).toLocaleDateString('de-DE'):'–'}</td>
           <td>${u.show_name===false?'<span class="td-private">Privat</span>':''}</td>
           <td><button class="btn-delete" onclick="openDeleteModal('${u.id}','${u.username}')">Löschen</button></td>
